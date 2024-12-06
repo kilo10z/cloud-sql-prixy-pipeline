@@ -6,7 +6,7 @@ steps:
       - cloud-sql-function
       - --runtime=python310
       - --trigger-http
-      - --no-allow-unauthenticated
+      - --[no-]allow-unauthenticated
       - --region=us-central1
       - --entry-point=execute_sql
       - --timeout=300
