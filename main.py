@@ -47,14 +47,12 @@ def execute_sql(request):
             }, 500
 
     # Start the Cloud SQL Proxy
-    # v2 usage: cloud-sql-proxy <INSTANCE_CONNECTION_NAME> -p 5432
-    # No IAM flags needed. IAM auth is handled by credentials and enable_iam_auth=True
     try:
         logger.info("Starting Cloud SQL Proxy v2...")
         proxy_command = [
             proxy_path,
-            instance_connection_name,
-            "-p", "5432"
+            instance_connection_name,  # Pass instance connection name as a positional argument
+            "--port", "5432"           # Explicitly bind to port 5432
         ]
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
