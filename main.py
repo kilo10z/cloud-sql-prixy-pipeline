@@ -4,6 +4,7 @@ import subprocess
 import logging
 import time
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -14,10 +15,13 @@ def execute_sql(request):
     db_name = os.getenv("DB_NAME")
     sql_query = os.getenv("SQL_QUERY")
 
-    logger.info("Environment variables:")
-    logger.info(f"INSTANCE_CONNECTION_NAME: {instance_connection_name}")
-    logger.info(f"DB_USER: {db_user}")
-    logger.info(f"DB_NAME: {db_name}")
+    # Check if required environment variables are set
+    if not all([instance_connection_name, db_user, db_name, sql_query]):
+        logger.error("Missing one or more required environment variables.")
+        return {
+            "status": "error",
+            "message": "Missing one or more required environment variables. Ensure INSTANCE_CONNECTION_NAME, DB_USER, DB_NAME, and SQL_QUERY are set."
+        }, 500
 
     # Define the path for the Cloud SQL Proxy binary
     proxy_path = "/tmp/cloud_sql_proxy"
@@ -36,7 +40,10 @@ def execute_sql(request):
             logger.info("Cloud SQL Proxy downloaded and made executable.")
         except Exception as e:
             logger.error(f"Failed to download Cloud SQL Proxy: {e}")
-            return {"status": "error", "message": f"Failed to download Cloud SQL Proxy: {e}"}, 500
+            return {
+                "status": "error",
+                "message": f"Failed to download Cloud SQL Proxy: {e}"
+            }, 500
 
     # Start Cloud SQL Proxy
     try:
@@ -46,13 +53,22 @@ def execute_sql(request):
             f"-instances={instance_connection_name}=tcp:5432",
             "--auto-iam-authn"
         ]
-        proxy_process = subprocess.Popen(proxy_command)
+        proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        time.sleep(5)  # Allow the proxy time to initialize
+        stdout, stderr = proxy_process.communicate(timeout=5)
+        if stderr:
+            logger.error(f"Cloud SQL Proxy failed to start: {stderr.decode()}")
+            return {
+                "status": "error",
+                "message": f"Cloud SQL Proxy failed to start: {stderr.decode()}"
+            }, 500
+        logger.info("Cloud SQL Proxy started successfully.")
     except Exception as e:
         logger.error(f"Failed to start Cloud SQL Proxy: {e}")
-        return {"status": "error", "message": f"Failed to start Cloud SQL Proxy: {e}"}, 500
-
-    # Wait for the proxy to initialize
-    time.sleep(5)
+        return {
+            "status": "error",
+            "message": f"Failed to start Cloud SQL Proxy: {e}"
+        }, 500
 
     # Connect to Cloud SQL
     try:
@@ -67,7 +83,10 @@ def execute_sql(request):
         logger.info("Connected to the database.")
     except Exception as e:
         logger.error(f"Failed to connect to the database: {e}")
-        return {"status": "error", "message": f"Failed to connect to the database: {e}"}, 500
+        return {
+            "status": "error",
+            "message": f"Failed to connect to the database: {e}"
+        }, 500
 
     # Execute SQL Query
     try:
@@ -78,8 +97,14 @@ def execute_sql(request):
             logger.info("SQL query executed successfully.")
     except Exception as e:
         logger.error(f"Failed to execute SQL query: {e}")
-        return {"status": "error", "message": f"Failed to execute SQL query: {e}"}, 500
+        return {
+            "status": "error",
+            "message": f"Failed to execute SQL query: {e}"
+        }, 500
     finally:
         conn.close()
 
-    return {"status": "success", "message": "SQL query executed successfully."}, 200
+    return {
+        "status": "success",
+        "message": "SQL query executed successfully."
+    }, 200
