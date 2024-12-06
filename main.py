@@ -51,7 +51,7 @@ def execute_sql(request):
         proxy_command = [
             proxy_path,
             f"-instances={instance_connection_name}=tcp:5432",
-            "--auto-iam-authn"
+            "--enable_iam_login"
         ]
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         time.sleep(5)  # Allow the proxy time to initialize
@@ -70,7 +70,7 @@ def execute_sql(request):
             "message": f"Failed to start Cloud SQL Proxy: {e}"
         }, 500
 
-    # Connect to Cloud SQL
+    # Connect to Cloud SQL using IAM authentication
     try:
         logger.info("Connecting to the database...")
         conn = psycopg2.connect(
@@ -78,7 +78,8 @@ def execute_sql(request):
             user=db_user,
             host="127.0.0.1",
             port="5432",
-            sslmode="disable"
+            sslmode="disable",
+            enable_iam_auth=True  # Enable IAM authentication
         )
         logger.info("Connected to the database.")
     except Exception as e:
