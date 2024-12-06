@@ -54,15 +54,26 @@ def execute_sql(request):
             "--enable_iam_login"
         ]
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        time.sleep(5)  # Allow the proxy time to initialize
-        stdout, stderr = proxy_process.communicate(timeout=5)
-        if stderr:
-            logger.error(f"Cloud SQL Proxy failed to start: {stderr.decode()}")
+
+        # Wait for the proxy to initialize
+        time.sleep(15)  # Increased timeout to 15 seconds
+        stdout, stderr = proxy_process.communicate(timeout=20)
+
+        # Check for proxy errors
+        if proxy_process.returncode != 0 or stderr:
+            logger.error(f"Cloud SQL Proxy failed to start. Stdout: {stdout.decode()} Stderr: {stderr.decode()}")
             return {
                 "status": "error",
-                "message": f"Cloud SQL Proxy failed to start: {stderr.decode()}"
+                "message": f"Cloud SQL Proxy failed to start. Details: {stderr.decode()}"
             }, 500
+
         logger.info("Cloud SQL Proxy started successfully.")
+    except subprocess.TimeoutExpired:
+        logger.error("Cloud SQL Proxy failed to start within the timeout period.")
+        return {
+            "status": "error",
+            "message": "Cloud SQL Proxy failed to start within the timeout period."
+        }, 500
     except Exception as e:
         logger.error(f"Failed to start Cloud SQL Proxy: {e}")
         return {
