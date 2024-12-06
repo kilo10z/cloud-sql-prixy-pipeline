@@ -2,6 +2,7 @@ import os
 import psycopg2
 import subprocess
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,11 +19,30 @@ def execute_sql(request):
     logger.info(f"DB_USER: {db_user}")
     logger.info(f"DB_NAME: {db_name}")
 
+    # Define the path for the Cloud SQL Proxy binary
+    proxy_path = "/tmp/cloud_sql_proxy"
+
+    # Download Cloud SQL Proxy if not already present
+    if not os.path.exists(proxy_path):
+        try:
+            logger.info("Downloading Cloud SQL Proxy...")
+            proxy_download_command = [
+                "curl",
+                "-o", proxy_path,
+                "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64"
+            ]
+            subprocess.check_call(proxy_download_command)
+            os.chmod(proxy_path, 0o755)  # Make the binary executable
+            logger.info("Cloud SQL Proxy downloaded and made executable.")
+        except Exception as e:
+            logger.error(f"Failed to download Cloud SQL Proxy: {e}")
+            return {"status": "error", "message": f"Failed to download Cloud SQL Proxy: {e}"}, 500
+
     # Start Cloud SQL Proxy
     try:
         logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
-            "/tmp/cloud_sql_proxy",
+            proxy_path,
             f"-instances={instance_connection_name}=tcp:5432",
             "--auto-iam-authn"
         ]
@@ -31,8 +51,7 @@ def execute_sql(request):
         logger.error(f"Failed to start Cloud SQL Proxy: {e}")
         return {"status": "error", "message": f"Failed to start Cloud SQL Proxy: {e}"}, 500
 
-    # Wait for Proxy to Start
-    import time
+    # Wait for the proxy to initialize
     time.sleep(5)
 
     # Connect to Cloud SQL
