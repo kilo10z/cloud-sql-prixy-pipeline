@@ -7,13 +7,12 @@ steps:
       - --runtime=python310
       - --trigger-http
       - --no-allow-unauthenticated
-      - --set-env-vars=INSTANCE_CONNECTION_NAME=kilo-gcp:us-central1:postgres-13,DB_NAME=postgres,DB_USER=779291354937-compute@developer,SQL_QUERY='CREATE\ TABLE\ IF\ NOT\ EXISTS\ test_table\ \(id\ SERIAL\ PRIMARY\ KEY\,\ name\ VARCHAR\(50\)\,\ age\ INT\)\;\ INSERT\ INTO\ test_table\ \(name\,\ age\)\ VALUES\ \(\'John\ Doe\'\,\ 30\)\;'
       - --region=us-central1
       - --entry-point=execute_sql
       - --timeout=300
       - --memory=512MB
       - --source=.
-
+      - --set-env-vars-file=env_vars.yaml
 options:
   logging: CLOUD_LOGGING_ONLY
 timeout: 1200s
