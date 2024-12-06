@@ -1,38 +1,36 @@
 import os
 import subprocess
+import psycopg2
+import logging
 import time
-import psycopg2  # PostgreSQL Python client
 
 def execute_sql(request):
-    """Cloud Function entry point."""
-    # Configuration via environment variables
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger()
+
+    # Fetch environment variables
     instance_connection_name = os.getenv("INSTANCE_CONNECTION_NAME")
     db_name = os.getenv("DB_NAME", "postgres")
-    db_user = os.getenv("DB_USER", "cloud-sql-iam-user")  # IAM-authenticated user
-    query = os.getenv("SQL_QUERY", "SELECT 1;")  # Default query
+    db_user = os.getenv("DB_USER")
+    query = os.getenv("SQL_QUERY")
 
     try:
-        # Download Cloud SQL Proxy (if not bundled)
-        if not os.path.exists("/tmp/cloud_sql_proxy"):
-            subprocess.run(
-                [
-                    "curl", "-o", "/tmp/cloud_sql_proxy",
-                    "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64"
-                ],
-                check=True
-            )
-            subprocess.run(["chmod", "+x", "/tmp/cloud_sql_proxy"], check=True)
-
-        # Start Cloud SQL Proxy with IAM authentication
+        # Log the start of the process
+        logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
             "/tmp/cloud_sql_proxy",
             f"-instances={instance_connection_name}=tcp:5432",
             "--auto-iam-authn"
         ]
-        proxy_process = subprocess.Popen(proxy_command)
-        time.sleep(5)  # Wait for the proxy to start
 
-        # Connect to the database using psycopg2
+        # Start the Cloud SQL Proxy
+        proxy_process = subprocess.Popen(proxy_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        time.sleep(5)  # Give the proxy time to start
+        logger.info("Cloud SQL Proxy started successfully.")
+
+        # Log database connection
+        logger.info("Connecting to the database...")
         conn = psycopg2.connect(
             dbname=db_name,
             user=db_user,
@@ -40,18 +38,22 @@ def execute_sql(request):
             port=5432
         )
         cur = conn.cursor()
+
+        # Log SQL query execution
+        logger.info("Executing SQL query...")
         cur.execute(query)
-        results = cur.fetchall()
+        conn.commit()
+        logger.info("SQL query executed successfully.")
+
+        # Close the connection
         cur.close()
         conn.close()
 
         # Stop the Cloud SQL Proxy
         proxy_process.terminate()
+        logger.info("Cloud SQL Proxy terminated.")
+        return {"status": "success", "message": "SQL query executed successfully."}
 
-        return {
-            "status": "success",
-            "results": results
-        }
     except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
         return {"status": "error", "message": str(e)}
-
