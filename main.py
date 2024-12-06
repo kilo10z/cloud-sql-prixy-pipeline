@@ -46,13 +46,13 @@ def execute_sql(request):
                 "message": f"Failed to download Cloud SQL Proxy: {e}"
             }, 500
 
-    # Start Cloud SQL Proxy
+    # Start Cloud SQL Proxy using v2 syntax
     try:
         logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
             proxy_path,
-            f"--instances={instance_connection_name}=tcp:5432",
-            "--enable_iam_login"
+            instance_connection_name,  # Positional argument for instance connection name
+            "--auto-iam-authn"         # Enable IAM authentication
         ]
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
