@@ -12,7 +12,7 @@ steps:
       - --timeout=300
       - --memory=512MB
       - --source=.
-      - --set-env-vars-file=env_vars.yaml
+      - --env-vars-file=env_vars.yaml
 options:
   logging: CLOUD_LOGGING_ONLY
 timeout: 1200s
