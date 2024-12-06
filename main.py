@@ -1,59 +1,45 @@
 import os
 import subprocess
-import psycopg2
 import logging
-import time
 
 def execute_sql(request):
     # Configure logging
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger()
 
-    # Fetch environment variables
-    instance_connection_name = os.getenv("INSTANCE_CONNECTION_NAME")
-    db_name = os.getenv("DB_NAME", "postgres")
-    db_user = os.getenv("DB_USER")
-    query = os.getenv("SQL_QUERY")
+    # Path for Cloud SQL Proxy binary
+    proxy_path = "/tmp/cloud_sql_proxy"
 
+    # Download Cloud SQL Proxy if not already present
+    if not os.path.exists(proxy_path):
+        logger.info("Downloading Cloud SQL Proxy...")
+        proxy_download_command = [
+            "curl",
+            "-o", proxy_path,
+            "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64"
+        ]
+        subprocess.check_call(proxy_download_command)
+
+        # Make the proxy executable
+        os.chmod(proxy_path, 0o755)
+        logger.info("Cloud SQL Proxy downloaded and made executable.")
+
+    # Start the Cloud SQL Proxy
     try:
-        # Log the start of the process
+        instance_connection_name = os.getenv("INSTANCE_CONNECTION_NAME")
+        if not instance_connection_name:
+            raise ValueError("INSTANCE_CONNECTION_NAME environment variable is not set")
+
         logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
-            "/tmp/cloud_sql_proxy",
+            proxy_path,
             f"-instances={instance_connection_name}=tcp:5432",
             "--auto-iam-authn"
         ]
-
-        # Start the Cloud SQL Proxy
-        proxy_process = subprocess.Popen(proxy_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(5)  # Give the proxy time to start
-        logger.info("Cloud SQL Proxy started successfully.")
-
-        # Log database connection
-        logger.info("Connecting to the database...")
-        conn = psycopg2.connect(
-            dbname=db_name,
-            user=db_user,
-            host="127.0.0.1",
-            port=5432
-        )
-        cur = conn.cursor()
-
-        # Log SQL query execution
-        logger.info("Executing SQL query...")
-        cur.execute(query)
-        conn.commit()
-        logger.info("SQL query executed successfully.")
-
-        # Close the connection
-        cur.close()
-        conn.close()
-
-        # Stop the Cloud SQL Proxy
-        proxy_process.terminate()
-        logger.info("Cloud SQL Proxy terminated.")
-        return {"status": "success", "message": "SQL query executed successfully."}
-
+        proxy_process = subprocess.Popen(proxy_command)
     except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Error starting Cloud SQL Proxy: {e}")
+        return {"status": "error", "message": str(e)}, 500
+
+    # Example SQL query execution logic
+    return {"status": "success", "message": "Cloud SQL Proxy started successfully"}, 200
