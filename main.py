@@ -48,7 +48,7 @@ def execute_sql(request):
 
     # Start the Cloud SQL Proxy
     try:
-        logger.info("Starting Cloud SQL Proxy v2...")
+        logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
             proxy_path,
             instance_connection_name,  # Pass instance connection name as a positional argument
@@ -57,11 +57,11 @@ def execute_sql(request):
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # Wait for proxy initialization
-        time.sleep(15)
+        time.sleep(30)  # Increased wait time for initialization
         stdout, stderr = proxy_process.communicate(timeout=20)
 
         if proxy_process.returncode != 0 or stderr:
-            logger.error(f"Cloud SQL Proxy failed to start. Stdout: {stdout.decode()} Stderr: {stderr.decode()}")
+            logger.error(f"Cloud SQL Proxy failed to start. Return code: {proxy_process.returncode}. Stdout: {stdout.decode()} Stderr: {stderr.decode()}")
             return {
                 "status": "error",
                 "message": f"Cloud SQL Proxy failed to start. Details: {stderr.decode()}"
