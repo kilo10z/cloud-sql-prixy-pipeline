@@ -14,6 +14,7 @@ def execute_sql(request):
     db_user = os.getenv("DB_USER")
     db_name = os.getenv("DB_NAME")
     sql_query = os.getenv("SQL_QUERY")
+    proxy_version = "2.12.0"
 
     # Check if required environment variables are set
     if not all([instance_connection_name, db_user, db_name, sql_query]):
@@ -24,16 +25,16 @@ def execute_sql(request):
         }, 500
 
     # Define the path for the Cloud SQL Proxy binary
-    proxy_path = "/tmp/cloud_sql_proxy"
+    proxy_path = f"/tmp/cloud_sql_proxy_{proxy_version}"
 
     # Download Cloud SQL Proxy if not already present
     if not os.path.exists(proxy_path):
         try:
-            logger.info("Downloading Cloud SQL Proxy...")
+            logger.info(f"Downloading Cloud SQL Proxy version {proxy_version}...")
             proxy_download_command = [
-                "curl",
-                "-o", proxy_path,
-                "https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64"
+                "wget",
+                f"https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v{proxy_version}/cloud-sql-proxy.linux.amd64",
+                "-O", proxy_path
             ]
             subprocess.check_call(proxy_download_command)
             os.chmod(proxy_path, 0o755)  # Make the binary executable
@@ -50,23 +51,22 @@ def execute_sql(request):
         logger.info("Starting Cloud SQL Proxy...")
         proxy_command = [
             proxy_path,
-            f"-instances={instance_connection_name}=tcp:5432",
+            f"--instances={instance_connection_name}=tcp:5432",
             "--enable_iam_login"
         ]
         proxy_process = subprocess.Popen(proxy_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # Wait for the proxy to initialize
-        time.sleep(15)  # Increased timeout to 15 seconds
+        time.sleep(15)
         stdout, stderr = proxy_process.communicate(timeout=20)
 
-        # Check for proxy errors
+        # Check if the proxy started successfully
         if proxy_process.returncode != 0 or stderr:
             logger.error(f"Cloud SQL Proxy failed to start. Stdout: {stdout.decode()} Stderr: {stderr.decode()}")
             return {
                 "status": "error",
                 "message": f"Cloud SQL Proxy failed to start. Details: {stderr.decode()}"
             }, 500
-
         logger.info("Cloud SQL Proxy started successfully.")
     except subprocess.TimeoutExpired:
         logger.error("Cloud SQL Proxy failed to start within the timeout period.")
