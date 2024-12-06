@@ -14,5 +14,9 @@ steps:
       - --memory=512MB
       - --source=.
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+logsBucket: gs://kilo-gcp_cloudbuild
 timeout: 1200s
+
 
